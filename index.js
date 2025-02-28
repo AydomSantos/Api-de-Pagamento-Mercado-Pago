@@ -1,6 +1,6 @@
 import axios from "axios";
 import express from "express";
-import mercadopago from "mercadopago";
+import { MercadoPagoConfig, Payment } from 'mercadopago'; 
 import dotenv from "dotenv";
 import cors from "cors";
 
@@ -11,16 +11,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Configurar Mercado Pago
-mercadopago.configure({
-  access_token: process.env.KEYMP
+// Configurar cliente do Mercado Pago
+const client = new MercadoPagoConfig({ 
+  accessToken: process.env.KEYMP 
 });
 
 // Rota para obter informações de pagamento
 app.get("/api/getpayment", async (req, res) => {
   try {
-    const payment = await mercadopago.payment.get(req.headers.paymentid);
-    res.status(200).json(payment.response);
+    const payment = await new Payment(client).get({ 
+      id: req.headers.paymentid 
+    });
+    res.status(200).json(payment);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Erro ao buscar pagamento" });
@@ -28,25 +30,25 @@ app.get("/api/getpayment", async (req, res) => {
 });
 
 // Rota para criar pagamento
-app.post("/api/createpayment", async (req, res) => { 
+app.post("/api/createpayment", async (req, res) => {
   try {
     const paymentData = {
       transaction_amount: req.body.amount,
-      currency: "BRL", 
+      currency: "BRL",
       description: req.body.description,
       payment_method_id: req.body.paymentMethodId,
       external_reference: req.body.externalReference,
       installments: req.body.installments || 1,
-      payer: { 
-        email: req.body.email 
+      payer: {
+        email: req.body.email
       }
     };
 
-    const response = await mercadopago.payment.create(paymentData);
+    const response = await new Payment(client).create({ body: paymentData });
     
     res.status(201).json({
-      ticket_url: response.body.point_of_interaction?.transaction_data?.ticket_url,
-      payment_id: response.body.id
+      ticket_url: response.point_of_interaction?.transaction_data?.ticket_url,
+      payment_id: response.id
     });
     
   } catch (error) {
@@ -59,15 +61,16 @@ app.post("/api/createpayment", async (req, res) => {
 });
 
 // Webhook
-app.post("/webhook", async (req, res) => { 
+app.post("/webhook", async (req, res) => {
   try {
     if (req.body.action === "payment.updated") {
       const paymentId = req.body.data.id;
       
-      const payment = await mercadopago.payment.get(paymentId);
+      const payment = await new Payment(client).get({ id: paymentId });
       
-      if (payment.response.status === "approved") {
+      if (payment.status === "approved") {
         console.log("Pagamento aprovado:", payment);
+        // Adicione sua lógica aqui
       }
     }
     res.status(200).end();
