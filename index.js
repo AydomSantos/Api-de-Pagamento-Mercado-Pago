@@ -1,27 +1,27 @@
 import axios from "axios";
-import express, { response } from "express";
+import express from "express";
 import { Payment } from "mercadopago";
+
 const app = express();
 app.use(express.json());
 
-app
-  .get("/api/getpayment", async (req, res) => {
-    const information = await new Payment({
-      accessToken: process.env.KEYMP,
-    })
-      .get({
-        id: req.headers.paymentid,
-      })
-      .catch(console.log);
-  })
-  .res.send({ response: information })
-  .status(200);
+// Rota GET corrigida
+app.get("/api/getpayment", async (req, res) => {
+  try {
+    const payment = new Payment({ accessToken: process.env.KEYMP });
+    const information = await payment.get({ id: req.headers.paymentid });
+    res.status(200).send({ response: information }); // Resposta dentro da rota
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({ error: "Erro ao buscar pagamento" });
+  }
+});
 
+// Rota PUT corrigida
 app.put("/api/createpayment", async (req, res) => {
-  await new Payment({
-    accessToken: process.env.KEYMP,
-  })
-    .create({
+  try {
+    const payment = new Payment({ accessToken: process.env.KEYMP });
+    const response = await payment.create({
       transaction_amount: {
         currency: "BRL",
         total: req.body.amount,
@@ -30,33 +30,38 @@ app.put("/api/createpayment", async (req, res) => {
       payment_method_id: req.body.paymentMethodId,
       external_reference: req.body.externalReference,
       installments: req.body.installments,
-    })
-    .then((response) => {
-      res
-        .send({
-          response: response.point_of_interaction.transaction_data.ticket_url,
-        })
-        .catch(console.log);
     });
-});
 
-app.post("https://dealhaven.com.br", async (req, res) => {
-  if (req.body.action === "payment.updated") {
-    await axios({
-      url: "/api/getpayment",
-      headers: {
-        paymentid: req.body.data.id,
-      },
-    })
-      .then((x) => x.data)
-      .then(async (r) => {
-        if (r.response.status === "approved") {
-          console.log(r);
-        }
-      })
-      .catch(console.log);
+    res.status(200).send({
+      response: response.point_of_interaction.transaction_data.ticket_url,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({ error: "Erro ao criar pagamento" });
   }
 });
-app.listen(process.env.PORT, async () => {
+
+// Rota POST corrigida
+app.post("/webhook", async (req, res) => { // URL fixa inválida, alterei para "/webhook"
+  if (req.body.action === "payment.updated") {
+    try {
+      const response = await axios.get("/api/getpayment", {
+        headers: { paymentid: req.body.data.id }
+      });
+      
+      if (response.data.response.status === "approved") {
+        console.log(response.data);
+        res.sendStatus(200);
+      }
+    } catch (error) {
+      console.log(error);
+      res.sendStatus(500);
+    }
+  } else {
+    res.sendStatus(400);
+  }
+});
+
+app.listen(process.env.PORT, () => {
   console.log(`Server is running on port ${process.env.PORT}`);
 });
