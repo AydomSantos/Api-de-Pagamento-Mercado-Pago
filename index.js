@@ -15,6 +15,7 @@ const allowedOrigins = process.env.CORS_ORIGINS?.split(',') || [
 
 app.use(cors({
   origin: (origin, callback) => {
+    // Permite requisições sem origem (ex.: ferramentas de teste ou chamadas server-to-server)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -36,9 +37,10 @@ app.use((req, res, next) => {
   next();
 });
 
+// 3. Parser para JSON
 app.use(express.json());
 
-// 3. Configuração do Mercado Pago com validação
+// 4. Configuração do Mercado Pago com validação
 if (!process.env.KEYMP) {
   console.error('Erro: KEYMP não definida nas variáveis de ambiente');
   process.exit(1);
@@ -52,7 +54,16 @@ const client = new MercadoPagoConfig({
   }
 });
 
-// 4. Health Check melhorado
+// Caso você utilize uma fila para processamento de pagamentos, defina-a ou crie uma implementação mínima.
+// Aqui, estamos criando uma função dummy para simular a adição na fila.
+const processPaymentQueue = {
+  add: (paymentId) => {
+    console.log(`Pagamento enfileirado: ${paymentId}`);
+    // Aqui você pode implementar o processamento assíncrono conforme necessário.
+  }
+};
+
+// 5. Health Check melhorado
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
@@ -61,7 +72,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// 5. Rota de criação de preferência com validação completa
+// 6. Rota de criação de preferência com validação completa
 app.post("/api/create_preference", async (req, res) => {
   try {
     // Validação dos dados
@@ -92,6 +103,7 @@ app.post("/api/create_preference", async (req, res) => {
       }
     };
 
+    // Criação da preferência de pagamento
     const response = await new Payment(client).create({ 
       body: paymentData,
       requestOptions: {
@@ -119,10 +131,10 @@ app.post("/api/create_preference", async (req, res) => {
   }
 });
 
-// 6. Webhook com validação de origem
+// 7. Webhook com validação de origem
 app.post("/webhook", async (req, res) => {
   try {
-    // Verificação básica de origem
+    // Verificação básica de origem via header secreto
     const validOrigin = req.headers['x-webhook-secret'] === process.env.WEBHOOK_SECRET;
     
     if (!validOrigin) {
@@ -146,7 +158,7 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-// 7. Configuração de porta segura
+// 8. Configuração da porta
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🛡️ Servidor rodando na porta ${PORT}`);
