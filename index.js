@@ -30,15 +30,13 @@ app.get("/api/getpayment", async (req, res) => {
 });
 
 // Rota para criar pagamento
-app.post("/api/createpayment", async (req, res) => {
+app.post("/api/create_preference", async (req, res) => {
   try {
     const paymentData = {
       transaction_amount: req.body.amount,
       currency: "BRL",
       description: req.body.description,
       payment_method_id: req.body.paymentMethodId,
-      external_reference: req.body.externalReference,
-      installments: req.body.installments || 1,
       payer: {
         email: req.body.email
       }
@@ -47,12 +45,11 @@ app.post("/api/createpayment", async (req, res) => {
     const response = await new Payment(client).create({ body: paymentData });
     
     res.status(201).json({
-      ticket_url: response.point_of_interaction?.transaction_data?.ticket_url,
-      payment_id: response.id
+      id: response.id,
+      ticket_url: response.point_of_interaction?.transaction_data?.ticket_url
     });
     
   } catch (error) {
-    console.error(error);
     res.status(500).json({ 
       error: error.message,
       details: error.cause 
