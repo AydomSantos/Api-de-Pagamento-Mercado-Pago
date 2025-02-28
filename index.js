@@ -10,7 +10,7 @@ const app = express();
 // 1. Configurações melhoradas
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? 'https://seu-frontend.com' 
+    ? 'http://localhost:3000' 
     : 'http://localhost:3000',
   methods: ['GET', 'POST', 'PUT']
 }));
