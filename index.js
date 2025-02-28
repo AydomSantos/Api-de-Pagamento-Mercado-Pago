@@ -9,7 +9,7 @@ const app = express();
 
 // 1. Configuração dinâmica de CORS
 const allowedOrigins = process.env.CORS_ORIGINS?.split(',') || [
-  'http://localhost:3001',
+  'http://localhost:3000',
   'https://seu-frontend.com'
 ];
 
