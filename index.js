@@ -1,67 +1,83 @@
 import axios from "axios";
 import express from "express";
-import { Payment } from "mercadopago";
+import mercadopago from "mercadopago";
+import dotenv from "dotenv";
+import cors from "cors";
 
+dotenv.config();
 const app = express();
+
+// Configurações essenciais
+app.use(cors());
 app.use(express.json());
 
-// Rota GET corrigida
+// Configurar Mercado Pago
+mercadopago.configure({
+  access_token: process.env.KEYMP
+});
+
+// Rota para obter informações de pagamento
 app.get("/api/getpayment", async (req, res) => {
   try {
-    const payment = new Payment({ accessToken: process.env.KEYMP });
-    const information = await payment.get({ id: req.headers.paymentid });
-    res.status(200).send({ response: information }); // Resposta dentro da rota
+    const payment = await mercadopago.payment.get(req.headers.paymentid);
+    res.status(200).json(payment.response);
   } catch (error) {
-    console.log(error);
-    res.status(500).send({ error: "Erro ao buscar pagamento" });
+    console.error(error);
+    res.status(500).json({ error: "Erro ao buscar pagamento" });
   }
 });
 
-// Rota PUT corrigida
-app.put("/api/createpayment", async (req, res) => {
+// Rota para criar pagamento
+app.post("/api/createpayment", async (req, res) => { 
   try {
-    const payment = new Payment({ accessToken: process.env.KEYMP });
-    const response = await payment.create({
-      transaction_amount: {
-        currency: "BRL",
-        total: req.body.amount,
-      },
+    const paymentData = {
+      transaction_amount: req.body.amount,
+      currency: "BRL", 
       description: req.body.description,
       payment_method_id: req.body.paymentMethodId,
       external_reference: req.body.externalReference,
-      installments: req.body.installments,
-    });
-
-    res.status(200).send({
-      response: response.point_of_interaction.transaction_data.ticket_url,
-    });
-  } catch (error) {
-    console.log(error);
-    res.status(500).send({ error: "Erro ao criar pagamento" });
-  }
-});
-
-// Rota POST corrigida
-app.post("/webhook", async (req, res) => { // URL fixa inválida, alterei para "/webhook"
-  if (req.body.action === "payment.updated") {
-    try {
-      const response = await axios.get("/api/getpayment", {
-        headers: { paymentid: req.body.data.id }
-      });
-      
-      if (response.data.response.status === "approved") {
-        console.log(response.data);
-        res.sendStatus(200);
+      installments: req.body.installments || 1,
+      payer: { 
+        email: req.body.email 
       }
-    } catch (error) {
-      console.log(error);
-      res.sendStatus(500);
-    }
-  } else {
-    res.sendStatus(400);
+    };
+
+    const response = await mercadopago.payment.create(paymentData);
+    
+    res.status(201).json({
+      ticket_url: response.body.point_of_interaction?.transaction_data?.ticket_url,
+      payment_id: response.body.id
+    });
+    
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ 
+      error: error.message,
+      details: error.cause 
+    });
   }
 });
 
-app.listen(process.env.PORT, () => {
-  console.log(`Server is running on port ${process.env.PORT}`);
+// Webhook
+app.post("/webhook", async (req, res) => { 
+  try {
+    if (req.body.action === "payment.updated") {
+      const paymentId = req.body.data.id;
+      
+      const payment = await mercadopago.payment.get(paymentId);
+      
+      if (payment.response.status === "approved") {
+        console.log("Pagamento aprovado:", payment);
+      }
+    }
+    res.status(200).end();
+  } catch (error) {
+    console.error("Erro no webhook:", error);
+    res.status(500).end();
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
