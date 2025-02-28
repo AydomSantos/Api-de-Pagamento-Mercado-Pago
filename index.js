@@ -54,12 +54,10 @@ const client = new MercadoPagoConfig({
   }
 });
 
-// Caso você utilize uma fila para processamento de pagamentos, defina-a ou crie uma implementação mínima.
-// Aqui, estamos criando uma função dummy para simular a adição na fila.
 const processPaymentQueue = {
   add: (paymentId) => {
     console.log(`Pagamento enfileirado: ${paymentId}`);
-    // Aqui você pode implementar o processamento assíncrono conforme necessário.
+   
   }
 };
 
