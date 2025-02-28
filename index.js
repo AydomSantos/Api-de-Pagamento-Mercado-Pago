@@ -7,36 +7,38 @@ import cors from "cors";
 dotenv.config();
 const app = express();
 
-// Configurações essenciais
-app.use(cors());
+// 1. Configurações melhoradas
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? 'https://seu-frontend.com' 
+    : 'http://localhost:3000',
+  methods: ['GET', 'POST', 'PUT']
+}));
+
 app.use(express.json());
 
-// Configurar cliente do Mercado Pago
+// 2. Configuração segura do Mercado Pago
 const client = new MercadoPagoConfig({ 
-  accessToken: process.env.KEYMP 
+  accessToken: process.env.KEYMP,
+  options: { timeout: 5000 }
 });
 
-// Rota para obter informações de pagamento
-app.get("/api/getpayment", async (req, res) => {
-  try {
-    const payment = await new Payment(client).get({ 
-      id: req.headers.paymentid 
-    });
-    res.status(200).json(payment);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Erro ao buscar pagamento" });
-  }
-});
+// 3. Health Check para monitoramento
+app.get('/health', (req, res) => res.status(200).json({ status: 'OK' }));
 
-// Rota para criar pagamento
+// 4. Rota de pagamento com validação
 app.post("/api/create_preference", async (req, res) => {
   try {
+    // Validação básica
+    if (!req.body.amount || !req.body.email) {
+      return res.status(400).json({ error: "Dados incompletos" });
+    }
+
     const paymentData = {
-      transaction_amount: req.body.amount,
+      transaction_amount: Number(req.body.amount),
       currency: "BRL",
-      description: req.body.description,
-      payment_method_id: req.body.paymentMethodId,
+      description: req.body.description || "Pagamento genérico",
+      payment_method_id: req.body.paymentMethodId || "pix",
       payer: {
         email: req.body.email
       }
@@ -46,29 +48,27 @@ app.post("/api/create_preference", async (req, res) => {
     
     res.status(201).json({
       id: response.id,
-      ticket_url: response.point_of_interaction?.transaction_data?.ticket_url
+      ticket_url: response.point_of_interaction?.transaction_data?.ticket_url,
+      qr_code: response.point_of_interaction?.transaction_data?.qr_code_base64
     });
     
   } catch (error) {
+    console.error('Erro no pagamento:', error);
     res.status(500).json({ 
       error: error.message,
-      details: error.cause 
+      code: error.cause?.code
     });
   }
 });
 
-// Webhook
+// 5. Webhook otimizado
 app.post("/webhook", async (req, res) => {
   try {
     if (req.body.action === "payment.updated") {
       const paymentId = req.body.data.id;
       
-      const payment = await new Payment(client).get({ id: paymentId });
-      
-      if (payment.status === "approved") {
-        console.log("Pagamento aprovado:", payment);
-        // Adicione sua lógica aqui
-      }
+      // Processamento assíncrono
+      processPayment(paymentId).catch(console.error);
     }
     res.status(200).end();
   } catch (error) {
@@ -77,7 +77,21 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
+// Função auxiliar para processar pagamentos
+async function processPayment(paymentId) {
+  try {
+    const payment = await new Payment(client).get({ id: paymentId });
+    if (payment.status === "approved") {
+      console.log("Pagamento aprovado:", payment.id);
+      // Implementar lógica de negócio aqui
+    }
+  } catch (error) {
+    console.error("Erro no processamento:", error);
+  }
+}
+
+// 6. Configuração de porta segura
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
