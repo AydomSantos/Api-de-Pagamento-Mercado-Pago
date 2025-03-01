@@ -1,20 +1,18 @@
 {
-  "name": "apimeracdolivre",
+  "name": "mercadopagopix",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "type": "module",
+  "description": "Mercado pago pix",
+  "main": "app.js",
   "scripts": {
-    "start": "node -r dotenv/config index.js"
+    "start": "node app.js"
   },
-  "author": "",
+  "type": "module",
+  "author": "Daniel Soares",
   "license": "ISC",
   "dependencies": {
-    "axios": "1.6.8",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "mercadopago": "^2.3.0",
-    "nodemon": "^3.1.9"
+    "mercadopago": "^2.3.0"
   }
 }
