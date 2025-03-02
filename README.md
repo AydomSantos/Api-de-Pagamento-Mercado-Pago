@@ -88,4 +88,5 @@ MIT License - Livre para uso e modificação
 
 Copy
 
-Este README fornece uma visão geral completa com instruções de configuração, exemplos de uso e informações técnicas relevantes. Você pode personalizar os valores e descrições conforme necessário para seu caso específico.
+Este README fornece uma visão geral completa com instruções de configuração, exemplos de uso e informações técnicas relevantes.
+Você pode personalizar os valores e descrições conforme necessário para seu caso específico.
